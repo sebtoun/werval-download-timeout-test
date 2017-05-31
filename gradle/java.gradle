@@ -1,0 +1,286 @@
+
+// Apply common werval publication build logic
+apply from: rootProject.file( '../gradle/publication.gradle' )
+apply from: rootProject.file( '../gradle/repositories.gradle' )
+apply from: rootProject.file( '../gradle/libraries.gradle' )
+
+// Basic IDE Support
+// When using Netbeans, simply issue 'gradle idea', the sources will then be available in your IDE.
+apply plugin: 'idea'
+idea { module { downloadJavadoc = true; downloadSources = true } }
+apply plugin: 'eclipse'
+
+// Require JDK8 at build time, JRE8 at runtime
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:deprecation"
+}
+tasks.matching({ task -> task instanceof JavaCompile && !task.name.toLowerCase().contains( 'test' ) })
+    .each({ task -> task.options.compilerArgs << "-Xlint:unchecked" })
+
+// All projects gets basic test dependencies
+dependencies {
+
+    testCompile libs.junit
+    testCompile libs.logback
+
+}
+
+// Create basic folder structure
+task createFolders(description: 'Creates the source folders if they do not exist.') doLast {
+    sourceSets*.allSource*.srcDirs*.each { File srcDir ->
+        if (!srcDir.isDirectory()) {
+            println "Creating source folder: ${srcDir}"
+            srcDir.mkdirs()
+        }
+    }
+}
+
+// Filter resources
+//afterEvaluate {
+//    configure( allProcessResourcesTasks() ) {
+//        filter( ReplaceTokens, tokens: [
+//                'build.version': project.version, 
+//                'build.gradleVersion': project.gradle.gradleVersion
+//            ] )
+//    }
+//}
+//def allProcessResourcesTasks() {
+//    sourceSets.all.processResourcesTaskName.collect {
+//        tasks[it]
+//    }
+//}
+
+// Generate Version Class
+apply plugin: VersionClass
+
+class VersionClass implements Plugin<Project>
+{
+    def void apply( Project project )
+    {
+        def generatedSrcDir = new File( project.buildDir, 'generated-src/version/java' )
+        def genVersionClassTask = project.task( 'genVersionClass' ) << {
+            def commit = "git rev-parse --short HEAD".execute().text.trim()
+            def dirtyProc = "git diff --no-ext-diff --quiet".execute()
+            dirtyProc.waitFor()
+            def dirty = dirtyProc.exitValue() != 0
+            def dateFormat = new java.text.SimpleDateFormat( "EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US )
+            dateFormat.setTimeZone( TimeZone.getTimeZone( "GMT" ) )
+            def now = dateFormat.format( new Date() )
+            def outFile = new File( generatedSrcDir, project.name.replace( '.', '/' ) + "/BuildVersion.java" )
+            outFile.getParentFile().mkdirs()
+            outFile.write( """
+/*
+ * Copyright (c) 2013-""" + Calendar.getInstance().get( Calendar.YEAR ) + """ the original author or authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package """ + project.name.replace( '-', '_' ) + """;
+
+/**
+ * Generated class that store the version derived from the build system.
+ */
+public interface BuildVersion
+{
+    /**
+     * The last commit hash from the git history, that is {@literal """ + commit + """}.
+     */
+    String COMMIT = \"""" + commit + """\";
+
+    /**
+     * True if they were local changes when built, that is {@literal """ + dirty + """}.
+     */
+    boolean DIRTY = """+ dirty + """;
+
+    /**
+     * The version of the project from the gradle build, that is {@literal """ + project.version + """}.
+     */
+    String VERSION = \"""" + project.version + """\";
+
+    /**
+     * The name of the project from the gradle build, that is {@literal """ + project.name + """}.
+     */
+    String NAME = \"""" + project.name + """\";
+
+    /**
+     * The group of the project from the gradle build, that is {@literal """ + project.group + """}.
+     */
+    String GROUP = \"""" + project.group + """\";
+
+    /**
+     * The date this file was generated, usually the last date that the project was modified,
+     * that is {@literal """ + now + """}.
+     */
+    String DATE = \"""" + now + """\";
+
+    /**
+     * The full details of the version, including the build date, that is
+     * {@literal """ + project.group + ":" + project.name + ":" + project.version + " " + commit + (dirty ? "(dirty) " : "") + " " + now + """}.
+     */
+    String DETAILED_VERSION = GROUP + ":" + NAME + ":" + VERSION + " "
+                              + COMMIT + " "
+                              + ( DIRTY ? "(dirty) " : "" ) + " "
+                              + DATE;
+}
+""" )
+        }
+        genVersionClassTask.outputs.files generatedSrcDir
+        project.getTasks().getByName( 'compileJava' ).dependsOn genVersionClassTask
+        project.sourceSets.main.java.srcDir generatedSrcDir
+    }
+}
+
+// Checkstyle setup
+apply plugin: 'checkstyle'
+checkstyleMain {
+    inputs.dir rootProject.file( '../config/checkstyle' )
+    inputs.dir project.file( 'config/checkstyle' )
+}
+checkstyle {
+    configFile = rootProject.file( '../config/checkstyle/werval-checks.xml' )
+    configProperties = [
+        // Global suppressions, applied to every modules
+        suppressionsCommon: rootProject.file( '../config/checkstyle/werval-suppressions.xml' ).absolutePath,
+        // Project suppressions, applied to this module only
+        suppressionsCustom: project.file( 'config/checkstyle/suppressions.xml' ).absolutePath
+    ]
+    // Easy skip
+    ignoreFailures = System.getProperty( "ignoreCheckstyle" ) != null
+    // Quiet
+    showViolations = false
+    // Check main sourceset only
+    // Checkstyle generates a report per sourceset
+    sourceSets = [ project.sourceSets.main ]
+    // Fix used checkstyle version
+    toolVersion = '6.6'
+}
+// Generate checkstyle HTML report
+task checkstyleMainHtmlReport {
+    // Custom XSLT file
+    def xsl = rootProject.file( '../config/checkstyle/html-report.xsl' )
+    // Output directory
+    def reportDir = project.file( "build/reports/checkstyle" )
+    // Declare input/outputs for nice incremental build
+    inputs.file xsl
+    inputs.dir reportDir
+    inputs.dir rootProject.file( '../config/checkstyle' )
+    inputs.dir project.file( 'config/checkstyle' )
+    outputs.dir reportDir
+    doLast {
+        // Apply XSLT on every XML reports found
+        reportDir.eachFile {
+            if( it.name.endsWith( ".xml" ) ) {
+                def outfile = project.file( 'build/reports/checkstyle/' + it.name.substring( 0, it.name.length() - 4 ) + ".html" )
+                ant.xslt( in: it, style: xsl, out: outfile )
+            }
+        }
+    }
+}
+// Generates default empty project suppressions if absent
+checkstyleMain.doFirst {
+    def suppressions = project.file( 'config/checkstyle/suppressions.xml' )
+    if( !suppressions.exists() )
+    {
+        suppressions.getParentFile().mkdirs()
+        suppressions.write( """<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Puppy Crawl//DTD Suppressions 1.1//EN"
+    "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+
+<!-- Checkstyle Suppressions                                             -->
+<!-- See http://checkstyle.sourceforge.net/config.html#SuppressionFilter -->
+
+<suppressions>
+
+    <!-- Add your suppression for this project here -->
+
+    <!-- Remeber to remove the suppression below, it disable checkstyle for all files! -->
+    <suppress checks=".*" files=".*"/>
+
+</suppressions>
+""" )
+        logger.quiet "Checkstyle suppressions skeleton created in $suppressions"
+    }
+}
+// Hook the HTML report generation right after the checkstyleMain task
+checkstyleMain.finalizedBy( checkstyleMainHtmlReport )
+
+
+// Tests configuration
+test {
+    testLogging {
+        if( System.getenv( 'TRAVIS' ) != null ) {
+            exceptionFormat 'full'
+        } else {
+            info.exceptionFormat 'full'
+        }
+    }
+    // Do not rely on ASM to scan for test classes
+    // Specify pattern instead
+    // This is mandatory for JDK 8 support until Gradle use ASM 5
+    scanForTestClasses = false
+    include '**/*Test.*'
+    exclude '**/*Test$*.*'
+    exclude '**/*Abstract*.*'
+    exclude '**/*$*Test*.*'
+}
+
+// Create sources JAR
+task sourcesJar(type: Jar, dependsOn: classes, description: 'Creates a jar from the source files.') {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+// Create javadoc JAR
+javadoc {
+    title = "${project.name} (${version})"
+    exclude "**/internal/**"
+    options.encoding = 'UTF-8'
+    options.docFilesSubDirs = true
+    options.links(
+        "http://docs.oracle.com/javase/8/docs/api/",
+        "http://www.slf4j.org/apidocs/",
+        "http://junit.org/apidocs/"
+    )
+    // disable the crazy super-strict doclint tool in Java 8
+    options.addStringOption( 'Xdoclint:none', '-quiet' )
+    doLast {
+        copy {
+            from 'src/main/javadoc'
+            into "${buildDir}/docs/javadoc"
+        }
+    }
+}
+task javadocJar(type: Jar, dependsOn:javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+// For remote publication
+artifacts {
+    archives jar 
+    archives sourcesJar
+    archives javadocJar
+}
+
+// For local publication
+publishing {
+    publications.wervalLocalRepoPub {
+        from components.java
+        artifact javadocJar
+        artifact sourcesJar
+    }
+}

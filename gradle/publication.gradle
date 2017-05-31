@@ -1,0 +1,187 @@
+
+apply from: rootProject.file( '../gradle/common.gradle' )
+
+// This is Java!
+apply plugin: 'java'
+
+// Archives signing
+apply plugin: 'signing'
+signing { sign configurations.archives }
+signArchives.onlyIf { version != "0" && !version.contains( "SNAPSHOT" ) }
+
+// Publication
+apply plugin: 'maven-publish'
+apply plugin: 'maven'
+
+// Setup for install in local internal repository
+// Use the new maven publication support in gradle
+// Generated POM is minimal here as this repository is only used for inter-build dependencies
+publishing {
+    publications.create( 'wervalLocalRepoPub' , MavenPublication ) {
+        pom.withXml {
+            // Gradle Publishing feature is exporting dependencies as 'runtime' scope,
+            // rather than 'compile'; fix that.
+            if( asNode().dependencies[0] ) {
+                asNode().dependencies[0].dependency.each { dep -> dep.scope[0].value = 'compile' }
+                // asNode().dependencies[0].removeAll { dep -> dep.scope[0].value == 'test' }
+            }
+        }
+    }
+    repositories {
+        maven { name "WervalLocal"; url "$rootProject.projectDir.absolutePath/../repository/" }
+    }
+}
+task finalizeInstall( dependsOn: "publishWervalLocalRepoPubPublicationToWervalLocalRepository" )
+install.finalizedBy finalizeInstall
+
+// Setup remote artifact publication
+// Use the now deprecated maven publication support in gradle
+uploadArchives.doFirst {
+    if( version == "0" ) {
+        throw new RuntimeException( "'version' must be given as a system property to perform a release." )
+    }
+}
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            if( !version.contains( "SNAPSHOT" ) ) {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom( deployment ) }
+            }
+            if( project.hasProperty( 'codeartisansNexusUsername' ) ) {
+                repository( url: "https://repo.codeartisans.org/content/repositories/qiweb-releases" ) {
+                    authentication( userName: codeartisansNexusUsername, password: codeartisansNexusPassword)
+                }
+                snapshotRepository( url: "https://repo.codeartisans.org/content/repositories/qiweb-snapshots" ) {
+                    authentication( userName: codeartisansNexusUsername, password: codeartisansNexusPassword)
+                }
+            } else {
+                project.logger.lifecycle "No uploadArchives repository set up, see gradle/publication.gradle"
+            }
+        }
+    }
+}
+
+// POM Setup for publication
+def installer = install.repositories.mavenInstaller
+def deployer = uploadArchives.repositories.mavenDeployer
+[installer, deployer]*.pom {
+    groupId = project.group
+    artifactId = project.name
+    version = project.version
+    project {
+        name project.name
+        description project.description
+        url "http://werval.io"
+        inceptionYear '2013'
+        organization {
+            name 'Werval Community'
+            url 'https://github.com/werval'
+        }
+        licenses {
+            license {
+                name 'The Apache Software License, Version 2.0'
+                url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                distribution 'repo'
+            }
+        }
+        issueManagement {
+            system 'Github'
+            url 'https://github.com/werval/werval/issues'
+        }
+        scm {
+            url 'https://github.com/werval/werval'
+            connection 'scm:git:https://github.com/werval/werval.git'
+            developerConnection 'scm:git:git@github.com:werval/werval.git'
+        }
+        developers {
+            developer {
+                id "eskatos"
+                name "Paul Merlin"
+                email "paul@nosphere.org"
+                timezone "Europe/Paris"
+                roles {
+                    role 'Founder'
+                    role 'Developer'
+                }
+            }
+        }
+        contributors {
+            contributor {
+                name "Quentin Gensburger"
+                email "quentin.gensburger@free.fr"
+                timezone "Europe/Paris"
+                roles {
+                    role 'Contributor'
+                }
+            }
+            contributor {
+                name "Lionel Chanson"
+                email "lionel@lionelchanson.fr"
+                timezone "Europe/Paris"
+                roles {
+                    role 'Contributor'
+                }
+            }
+            /*
+            contributor {
+            name "Jean-Michel Tonneau"
+            email "jmichel.tonneau@gmail.com"
+            timezone "Europe/London"
+            roles {
+            role 'Contributor'
+            }
+            }
+             */
+        }
+    }
+}
+
+// Bintray!
+buildscript {
+    repositories { jcenter() }
+    dependencies { classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.0' }
+}
+if( project.hasProperty( 'bintrayUsername' ) ) {
+    apply plugin: com.jfrog.bintray.gradle.BintrayPlugin
+    bintray {
+        user = bintrayUsername
+        key = bintrayApiKey
+        configurations = [ 'archives' ]
+        dryRun = false
+        publish = false
+        pkg {
+            repo = 'werval'
+            name = 'werval'
+            desc = 'Werval is an open source JVM based toolkit for building HTTP services'
+            websiteUrl = 'http://werval.io/'
+            licenses = [ 'Apache-2.0' ]
+            labels = [ 'java', 'http' ]
+            publicDownloadNumbers = false
+            version {
+                name = project.version
+                desc = "Werval ${project.version}"
+                vcsTag = project.version
+                attributes = [
+                    'gradle-plugin' : [
+                        'io.werval.application:io.werval:io.werval.gradle',
+                        'io.werval.module:io.werval:io.werval.gradle'
+                    ]
+                ]
+                mavenCentralSync {
+                    sync = false
+                    user = mavenCentralUsername
+                    password = mavenCentralPassword
+                }
+                gpg.sign = false
+            }
+        }
+    }
+    bintrayUpload {
+        doFirst {
+            if( version == "0" ) {
+                throw new RuntimeException( "'version' must be given as a system property to perform a release." )
+            }
+        }
+        dependsOn signArchives
+    }
+}

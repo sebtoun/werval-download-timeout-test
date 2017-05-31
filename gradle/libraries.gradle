@@ -1,0 +1,148 @@
+// Define libraries and webjars used accross projects and their versions
+
+// Core API libraries versions
+def v_slf4j = '1.7.12'
+
+// Core Runtime libraries versions
+def v_javassist = '3.20.0-GA'
+def v_typesafe_config = '1.3.0'
+
+// HTTP Server libraries versions
+def v_netty = '4.0.30.Final'
+
+// DevShell librairies versions
+def v_classworlds = '2.5.2'
+def v_sitemesh = '3.0.1'
+
+// CLI libraries versions
+def v_cli = '1.3.1'
+
+// Modules libraries versions
+def v_eclipselink = '2.6.0'
+def v_ehcache = '2.10.0'
+def v_email = '1.4'
+def v_guice = '4.0'
+def v_hikaricp = '2.4.1'
+def v_jackson = '2.6.1'
+def v_jedis = '2.7.3'
+def v_jing = '20091111'
+def v_jose4j = '0.4.4'
+def v_jpa = '2.1.0'
+def v_liquibase = '3.4.1'
+def v_liquibase_slf4j = '1.2.1'
+def v_log4jdbc = '1.16'
+def v_memcache = '2.12.0'
+def v_metrics = '3.1.2'
+def v_rythm = '1.0.1'
+def v_saxon = '9.6.0-7'
+def v_spring = '4.2.0.RELEASE'
+def v_thymeleaf = '2.1.4.RELEASE'
+def v_tyrex = '1.0.1'
+def v_woodstox = '4.4.1'
+def v_xerces = '2.11.0'
+def v_xmlresolver = '1.2'
+def v_zest = '2.1'
+
+// Build Plugins libraries versions
+def v_gradle_tooling = '2.2.1'
+
+// Testing Tools libraries versions
+def v_awaitility = '1.6.3'
+def v_fluentlenium = '0.10.3'
+def v_junit = '4.12'
+def v_rest_assured = '2.5.0'
+def v_selenium = '2.47.1'
+
+// Test libraries versions
+def v_h2 = '1.4.188'
+def v_logback = '1.1.3'
+def v_postgres = '9.4-1202-jdbc42'
+def v_subethasmtp = '3.1.7'
+
+// Libraries extension
+rootProject.ext {
+    libs = [
+
+        // Core API libraries
+        slf4j:                  "org.slf4j:slf4j-api:$v_slf4j",
+
+        // Core Runtime libraries
+        javassist:              "org.javassist:javassist:$v_javassist",
+        typesafe_config:        "com.typesafe:config:$v_typesafe_config",
+
+        // HTTP Server libraries
+        netty_http:             "io.netty:netty-codec-http:$v_netty",
+
+        // DevShell librairies
+        classworlds:            "org.codehaus.plexus:plexus-classworlds:$v_classworlds",
+        sitemesh:               "org.sitemesh:sitemesh:$v_sitemesh",
+
+        // CLI libraries
+        cli:                    "commons-cli:commons-cli:$v_cli",
+
+        // Modules libraries
+        eclipselink:            "org.eclipse.persistence:eclipselink:$v_eclipselink",
+        ehcache:                "net.sf.ehcache:ehcache:$v_ehcache",
+        email:                  "org.apache.commons:commons-email:$v_email",
+        guice:                  "com.google.inject:guice:$v_guice",
+        hikaricp:               "com.zaxxer:HikariCP:$v_hikaricp",
+        jackson: [
+                                "com.fasterxml.jackson.core:jackson-core:$v_jackson",
+                                "com.fasterxml.jackson.core:jackson-annotations:$v_jackson",
+                                "com.fasterxml.jackson.core:jackson-databind:$v_jackson",
+        ],
+        jedis:                  "redis.clients:jedis:$v_jedis",
+        jing:                   "com.thaiopensource:jing:$v_jing",
+        jose4j:                 "org.bitbucket.b_c:jose4j:$v_jose4j",
+        jpa:                    "org.eclipse.persistence:javax.persistence:$v_jpa",
+        liquibase:              "org.liquibase:liquibase-core:$v_liquibase",
+        liquibase_slf4j:        "com.mattbertolini:liquibase-slf4j:$v_liquibase_slf4j",
+        log4jdbc:               "org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:$v_log4jdbc",
+        memcache:               "net.spy:spymemcached:$v_memcache",
+        metrics: [
+                                "io.dropwizard.metrics:metrics-core:$v_metrics",
+                                "io.dropwizard.metrics:metrics-healthchecks:$v_metrics",
+                                "io.dropwizard.metrics:metrics-jvm:$v_metrics",
+                                "io.dropwizard.metrics:metrics-json:$v_metrics",
+        ],
+        rythm: [
+                                "org.rythmengine:rythm-engine:$v_rythm",
+                                'org.eclipse.jdt.core.compiler:ecj:4.4'
+        ],
+        thymeleaf:              "org.thymeleaf:thymeleaf:$v_thymeleaf",
+        saxon:                  "net.sf.saxon:Saxon-HE:$v_saxon",
+        spring_context:         "org.springframework:spring-context:$v_spring",
+        spring_test:            "org.springframework:spring-test:$v_spring",
+        tyrex:                  "tyrex:tyrex:$v_tyrex",
+        woodstox:               "org.codehaus.woodstox:woodstox-core-asl:$v_woodstox",
+        xerces:                 "xerces:xercesImpl:$v_xerces",
+        xmlresolver:            "xml-resolver:xml-resolver:$v_xmlresolver",
+        zest_bootstrap:         "org.qi4j.core:org.qi4j.core.bootstrap:$v_zest",
+        zest_runtime:           "org.qi4j.core:org.qi4j.core.runtime:$v_zest",
+
+        // Build Plugins libraries
+        gradle_tooling:         "org.gradle:gradle-tooling-api:$v_gradle_tooling",
+
+        // Testing Tools libraries
+        awaitility:             "com.jayway.awaitility:awaitility:$v_awaitility",
+        fluentlenium: [
+                                "org.fluentlenium:fluentlenium-festassert:$v_fluentlenium",
+                                "org.seleniumhq.selenium:selenium-java:$v_selenium"
+        ],
+        junit: [
+                                "junit:junit:$v_junit",
+                                "org.hamcrest:hamcrest-all:1.3",
+        ],
+        rest_assured:[
+                                "com.jayway.restassured:rest-assured:$v_rest_assured",
+                                "commons-logging:commons-logging:1.2",
+        ],
+
+        // Test libraries
+        h2:                     "com.h2database:h2:$v_h2",
+        logback:                "ch.qos.logback:logback-classic:$v_logback",
+        postgres:               "org.postgresql:postgresql:$v_postgres",
+        subethasmtp:            "org.subethamail:subethasmtp:$v_subethasmtp",
+
+    ]
+}

@@ -1,0 +1,8 @@
+
+def localRepository = rootProject.file( '../repository' )
+if( !localRepository.exists() ) localRepository.mkdirs()
+
+repositories {
+    maven { url localRepository }
+    jcenter()
+}

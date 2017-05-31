@@ -1,0 +1,23 @@
+
+plugins {
+    id 'idea'
+    id 'io.werval.application' version '0.7.5'
+}
+
+dependencies {
+    compile werval.module( 'json' )
+    // Add application compile dependencies here
+
+    // runtime 'org.slf4j:slf4j-simple:1.7.12'
+    // Add application runtime dependencies here
+
+    runtime 'ch.qos.logback:logback-classic:1.1.2'
+
+    testCompile 'com.jayway.restassured:rest-assured:2.5.0'
+    // Add application test dependencies here
+}
+
+devshell {
+    openBrowser = false
+    configResource = 'dev.conf'
+}
